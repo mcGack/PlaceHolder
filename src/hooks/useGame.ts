@@ -26,6 +26,7 @@ export const useGame = () => {
     }
 
     if (roomCode === '1111') {
+      setMode('SFW'); // Example: Set mode based on room code --- in future change this
       startGame();
     } else {
       setErrorMessage('Nie znaleziono pokoju o podanym kodzie!');
@@ -42,9 +43,10 @@ export const useGame = () => {
   };
 
   const navigateTo = (newScreen: ScreenState) => {
-    if (newScreen === 'JOIN') {
+    if (newScreen === 'MENU') {
       setRoomCode('');
       setErrorMessage('');
+      setMode('SFW'); // Reset mode to default (SFW) when navigating back to menu
     }
     setScreen(newScreen);
   };
