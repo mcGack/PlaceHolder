@@ -1,6 +1,6 @@
 [
-  { "id": 1, "text": "Zrób 10 pompek z osobą po Twojej prawej stronie.", "mode": "SFW" },
-  { "id": 2, "text": "Zaśpiewaj refren swojej ulubionej piosenki.", "mode": "SFW" },
-  { "id": 3, "text": "Pokaż reszcie ostatnie zdjęcie w swojej galerii.", "mode": "NSFW" },
-  { "id": 4, "text": "Daj się uszczypnąć graczowi po lewej stronie.", "mode": "NSFW" }
+  { "id": 1, "text": "Zrób 10 pompek", "mode": "SFW", "points": 1 },
+  { "id": 2, "text": "Zatańcz tango z krzesłem", "mode": "SFW", "points": 3 },
+  { "id": 3, "text": "Daj sprawdzić swoją historię przeglądarki", "mode": "NSFW", "points": 5 },
+  { "id": 4, "text": "Zadzwoń do losowej osoby i udawaj ducha", "mode": "NSFW", "points": 10 }
 ]

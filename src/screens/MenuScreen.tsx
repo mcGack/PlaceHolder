@@ -7,7 +7,7 @@ interface MenuScreenProps {
 
 export const MenuScreen = ({ onNavigate }: MenuScreenProps) => (
   <View style={styles.centerContainer}>
-    <Text style={styles.title}>Imprezowa Gra</Text>
+    <Text style={styles.title}>PlaceHolder</Text> 
     
     <TouchableOpacity style={styles.mainButton} onPress={() => onNavigate('CREATE_SETTINGS')}>
       <Text style={styles.mainButtonText}>STWÓRZ GRĘ</Text>

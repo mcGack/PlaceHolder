@@ -2,8 +2,8 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../hooks/useGame';
 import { CreateSettingsScreen } from '../screens/CreateSettingsScreen';
-import { GameScreen } from '../screens/GameScreen';
 import { JoinScreen } from '../screens/JoinScreen';
+import { LobbyScreen } from '../screens/LobbyScreen';
 import { MenuScreen } from '../screens/MenuScreen';
 
 export default function App() {
@@ -11,27 +11,31 @@ export default function App() {
     screen,
     mode,
     roomCode,
+    playerName,
+    userId,
     errorMessage,
-    currentChallenge,
-    currentPlayer,
+    playersList,
+    roomData,
     setMode,
     setRoomCode,
-    setErrorMessage,
-    startGame,
+    setPlayerName,
+    handleCreateGame,
     handleJoinGame,
-    drawNext,
     navigateTo,
   } = useGame();
 
   return (
     <SafeAreaView style={styles.container}>
       {screen === 'MENU' && <MenuScreen onNavigate={navigateTo} />}
-      
+
       {screen === 'CREATE_SETTINGS' && (
         <CreateSettingsScreen
           mode={mode}
+          playerName={playerName}
+          errorMessage={errorMessage}
           onSelectMode={setMode}
-          onStartGame={startGame}
+          onChangePlayerName={setPlayerName}
+          onCreateGame={handleCreateGame}
           onBack={navigateTo}
         />
       )}
@@ -39,23 +43,22 @@ export default function App() {
       {screen === 'JOIN' && (
         <JoinScreen
           roomCode={roomCode}
+          playerName={playerName}
           errorMessage={errorMessage}
-          onChangeRoomCode={(code) => {
-            setRoomCode(code);
-            setErrorMessage('');
-          }}
+          onChangeRoomCode={setRoomCode}
+          onChangePlayerName={setPlayerName}
           onJoin={handleJoinGame}
           onBack={navigateTo}
         />
       )}
 
-      {screen === 'GAME' && (
-        <GameScreen
-          mode={mode}
-          currentPlayer={currentPlayer}
-          currentChallenge={currentChallenge}
-          onDrawNext={drawNext}
-          onExit={navigateTo}
+      {screen === 'LOBBY' && (
+        <LobbyScreen
+          roomCode={roomCode}
+          players={playersList}
+          userId={userId}
+          hostId={roomData?.hostId}
+          onLeave={navigateTo}
         />
       )}
     </SafeAreaView>
