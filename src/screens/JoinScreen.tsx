@@ -1,5 +1,4 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenState } from '../types/game';
 
 interface JoinScreenProps {
   roomCode: string;
@@ -8,7 +7,7 @@ interface JoinScreenProps {
   onChangeRoomCode: (code: string) => void;
   onChangePlayerName: (name: string) => void;
   onJoin: () => void;
-  onBack: (screen: ScreenState) => void;
+  onBack: (screen: 'MENU') => void;
 }
 
 export const JoinScreen = ({
@@ -19,46 +18,51 @@ export const JoinScreen = ({
   onChangePlayerName,
   onJoin,
   onBack,
-}: JoinScreenProps) => (
-  <View style={styles.centerContainer}>
-    <Text style={styles.subtitle}>Dołącz do pokoju</Text>
+}: JoinScreenProps) => {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Dołącz do gry</Text>
 
-    <TextInput
-      style={styles.input}
-      placeholder="Twoje imię"
-      placeholderTextColor="#666"
-      value={playerName}
-      onChangeText={onChangePlayerName}
-    />
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-    <TextInput
-      style={styles.input}
-      placeholder="Kod pokoju (np. X7K2)"
-      placeholderTextColor="#666"
-      value={roomCode}
-      onChangeText={(text) => onChangeRoomCode(text.toUpperCase())}
-      maxLength={4}
-      autoCapitalize="characters"
-    />
+      <Text style={styles.label}>Kod pokoju (4 znaki):</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="np. ABCD"
+        placeholderTextColor="#666"
+        value={roomCode}
+        onChangeText={(text) => onChangeRoomCode(text.toUpperCase())}
+        maxLength={4}
+        autoCapitalize="characters"
+      />
 
-    {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      <Text style={styles.label}>Twoje imię:</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Wpisz imię..."
+        placeholderTextColor="#666"
+        value={playerName}
+        onChangeText={onChangePlayerName}
+      />
 
-    <TouchableOpacity style={styles.actionButton} onPress={onJoin}>
-      <Text style={styles.actionButtonText}>DOŁĄCZ</Text>
-    </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={onJoin}>
+        <Text style={styles.buttonText}>DOŁĄCZ</Text>
+      </TouchableOpacity>
 
-    <TouchableOpacity onPress={() => onBack('MENU')}>
-      <Text style={styles.backText}>‹ Powrót do menu</Text>
-    </TouchableOpacity>
-  </View>
-);
+      <TouchableOpacity onPress={() => onBack('MENU')}>
+        <Text style={styles.backText}>Powrót</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 20 },
-  subtitle: { fontSize: 24, fontWeight: 'bold', color: '#FFF', marginBottom: 20 },
-  input: { backgroundColor: '#1E1E1E', color: '#FFF', width: '85%', padding: 15, borderRadius: 12, fontSize: 18, textAlign: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#333' },
-  errorText: { color: '#FF5252', marginBottom: 15, fontWeight: '600' },
-  actionButton: { backgroundColor: '#6200EE', width: '85%', paddingVertical: 18, borderRadius: 15, alignItems: 'center', marginBottom: 15 },
-  actionButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  backText: { color: '#888', marginTop: 10, fontSize: 15 },
+  container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: '#121212' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', textAlign: 'center', marginBottom: 20 },
+  label: { color: '#AAA', fontSize: 14, marginBottom: 5 },
+  input: { backgroundColor: '#1E1E1E', color: '#FFF', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#333' },
+  button: { backgroundColor: '#FFD700', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  buttonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
+  backText: { color: '#AAA', textAlign: 'center', marginTop: 15 },
+  errorText: { color: '#FF5252', textAlign: 'center', marginBottom: 10 },
 });

@@ -1,7 +1,7 @@
 import { onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
-import { createRoomInDb, joinRoomInDb } from '../services/roomService';
+import { closeRoomInDb, createRoomInDb, joinRoomInDb, leaveRoomInDb } from '../services/roomService';
 import { GameMode, Player, RoomData, ScreenState } from '../types/game';
 export const useGame = () => {
   const [screen, setScreen] = useState<ScreenState>('MENU');
@@ -16,16 +16,24 @@ export const useGame = () => {
 
   // Live updates from Firebase for the current room
   useEffect(() => {
-    if (!roomCode || screen === 'MENU') return;
+    if (!roomCode || screen === 'MENU' || screen === 'JOIN' || screen === 'CREATE_SETTINGS') {
+      return;
+    }
 
     const roomRef = ref(db, `rooms/${roomCode}`);
     const unsubscribe = onValue(roomRef, (snapshot) => {
-      const data: RoomData = snapshot.val();
-      if (data) {
-        setRoomData(data);
-        if (data.players) {
-          setPlayersList(Object.values(data.players));
-        }
+      const data: RoomData | null = snapshot.val();
+    
+      if (!data) {
+        setErrorMessage('Pokój został zamknięty.');
+        setScreen('MENU');
+        setRoomCode('');
+        return;
+      }
+
+      setRoomData(data);
+      if (data.players) {
+        setPlayersList(Object.values(data.players));
       }
     });
 
@@ -73,15 +81,36 @@ export const useGame = () => {
     }
   };
 
-  const navigateTo = (newScreen: ScreenState) => {
-    if (newScreen === 'MENU') {
+  const navigateTo = (targetScreen: ScreenState) => {
+    setErrorMessage('');
+    if (targetScreen === 'MENU' || targetScreen === 'JOIN' || targetScreen === 'CREATE_SETTINGS') {
       setRoomCode('');
-      setErrorMessage('');
-      setPlayersList([]);
+      setRoomData(null);
     }
-    setScreen(newScreen);
+    setScreen(targetScreen);
   };
-
+  const handleLeaveRoom = async () => {
+    console.log('Rozpoczynam opuszczanie pokoju...', { roomCode, userId });
+    try {
+      if (roomCode && userId) {
+        const isHost = roomData?.hostId === userId;
+        if (isHost) {
+          await closeRoomInDb(roomCode);
+        } else {
+          await leaveRoomInDb(roomCode, userId);
+        }
+      }
+    } catch (err) {
+    console.error('Błąd usuwania wpisu z bazy:', err);
+  } finally {
+    // Reset state after leaving the room
+    setRoomCode('');
+    setRoomData(null);
+    setPlayersList([]);
+    setErrorMessage('');
+    setScreen('MENU');
+    }
+  };
   return {
     screen,
     mode,
@@ -97,5 +126,6 @@ export const useGame = () => {
     handleCreateGame,
     handleJoinGame,
     navigateTo,
+    handleLeaveRoom,
   };
 };

@@ -1,4 +1,4 @@
-import { get, ref, set } from 'firebase/database';
+import { get, onDisconnect, ref, remove, set } from 'firebase/database';
 import { GameMode, RoomData } from '../types/game';
 import { db } from './firebase';
 
@@ -13,33 +13,27 @@ export const generateRoomCode = (): string => {
 
 // Host creates a new room in the database with the provided host name and game mode. Returns the room code and host ID.
 export const createRoomInDb = async (hostName: string, mode: GameMode) => {
-  try {
-    const roomCode = generateRoomCode();
-    const hostId = `player_${Date.now()}`;
+  const roomCode = generateRoomCode();
+  const hostId = `player_${Date.now()}`;
+  const roomRef = ref(db, `rooms/${roomCode}`);
 
-    const initialRoomData: RoomData = {
-      hostId,
-      status: 'LOBBY',
-      mode,
-      players: {
-        [hostId]: {
-          id: hostId,
-          name: hostName,
-          score: 0,
-        },
-      },
-    };
+  const initialRoomData: RoomData = {
+    hostId,
+    status: 'LOBBY',
+    mode,
+    players: {
+      [hostId]: { id: hostId, name: hostName, score: 0 },
+    },
+    createdAt: Date.now(),
+  };
 
-    console.log('Próba zapisu pokoju do bazy...', roomCode);
-    await set(ref(db, `rooms/${roomCode}`), initialRoomData);
-    console.log('Zapis zakończony sukcesem!');
+  await set(roomRef, initialRoomData);
 
-    return { roomCode, userId: hostId };
-  } catch (error) {
-    console.error('SZCZEGÓŁY BŁĘDU FIREBASE:', error);
-    throw error;
-  }
-};    
+  // Zgłoszenie do serwera Firebase: jeśli połączenie Hosta zostanie zerwane, usuń cały pokój
+  onDisconnect(roomRef).remove();
+
+  return { roomCode, userId: hostId };
+};
 
 // Join an existing room in the database with the provided room code and player name. Returns the player ID.
 export const joinRoomInDb = async (roomCode: string, playerName: string) => {
@@ -60,4 +54,20 @@ export const joinRoomInDb = async (roomCode: string, playerName: string) => {
   });
 
   return { userId };
+};
+// Leave a room in the database by removing the player from the room's players list.
+export const leaveRoomInDb = async (roomCode: string, userId: string) => {
+  if (!roomCode || !userId) return;
+  console.log(`Usuwanie gracza ${userId} z pokoju ${roomCode} w Firebase...`);
+  const playerRef = ref(db, `rooms/${roomCode}/players/${userId}`);
+  await remove(playerRef);
+  console.log('Gracz został usunięty z pokoju w Firebase.');
+};
+// Host closes the room in the database by removing the entire room entry.
+export const closeRoomInDb = async (roomCode: string) => {
+  if (!roomCode) return;
+  console.log('Usuwanie całego pokoju z Firebase:', roomCode);
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await remove(roomRef);
+  console.log('Pokój został usunięty z Firebase:');
 };

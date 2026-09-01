@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../hooks/useGame';
 import { CreateSettingsScreen } from '../screens/CreateSettingsScreen';
@@ -22,10 +22,16 @@ export default function App() {
     handleCreateGame,
     handleJoinGame,
     navigateTo,
+    handleLeaveRoom,
   } = useGame();
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{ backgroundColor: '#222', padding: 10, alignItems: 'center' }}>
+        <Text style={{ color: '#00FF00', fontWeight: 'bold' }}>
+          AKTUALNY EKRAN: {screen} | KOD: {roomCode || 'BRAK'}
+        </Text>
+      </View>
       {screen === 'MENU' && <MenuScreen onNavigate={navigateTo} />}
 
       {screen === 'CREATE_SETTINGS' && (
@@ -58,7 +64,7 @@ export default function App() {
           players={playersList}
           userId={userId}
           hostId={roomData?.hostId}
-          onLeave={navigateTo}
+          onLeave={handleLeaveRoom}
         />
       )}
     </SafeAreaView>
