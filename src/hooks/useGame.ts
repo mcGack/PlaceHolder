@@ -164,5 +164,6 @@ export const useGame = () => {
     handleJoinGame,
     navigateTo,
     handleLeaveRoom,
+    handleStartGame,
   };
 };

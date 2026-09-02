@@ -24,6 +24,7 @@ export default function App() {
     handleJoinGame,
     navigateTo,
     handleLeaveRoom,
+    handleStartGame,
   } = useGame();
 
   return (
@@ -66,6 +67,7 @@ export default function App() {
           userId={userId}
           hostId={roomData?.hostId}
           onLeave={handleLeaveRoom}
+          onStartGame={handleStartGame}
         />
       )}
       {screen === 'GAME' && (
