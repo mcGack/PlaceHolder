@@ -1,7 +1,10 @@
-import { get, onDisconnect, ref, remove, set } from 'firebase/database';
+import { get, onDisconnect, ref, remove, set, update } from 'firebase/database';
 import { GameMode, RoomData } from '../types/game';
 import { db } from './firebase';
 
+
+
+// Generates a random 4-character room code consisting of uppercase letters and digits.
 export const generateRoomCode = (): string => {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -29,7 +32,7 @@ export const createRoomInDb = async (hostName: string, mode: GameMode) => {
 
   await set(roomRef, initialRoomData);
 
-  // Zgłoszenie do serwera Firebase: jeśli połączenie Hosta zostanie zerwane, usuń cały pokój
+  // On disconnect from host, remove the room from the database to clean up.
   onDisconnect(roomRef).remove();
 
   return { roomCode, userId: hostId };
@@ -70,4 +73,17 @@ export const closeRoomInDb = async (roomCode: string) => {
   const roomRef = ref(db, `rooms/${roomCode}`);
   await remove(roomRef);
   console.log('Pokój został usunięty z Firebase:');
+};
+
+// Start the game in the database by updating the room's status, turn stage, and active player ID.
+export const startGameInDb = async (roomCode: string, firstPlayerId: string) => {
+  if (!roomCode) return;
+  const roomRef = ref(db, `rooms/${roomCode}`);
+
+  await update(roomRef, {
+    status: 'IN_GAME',
+    turnStage: 'DRAWING',
+    activePlayerId: firstPlayerId,
+    votes: null,
+  });
 };

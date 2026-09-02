@@ -7,14 +7,15 @@ interface LobbyScreenProps {
   userId: string;
   hostId?: string;
   onLeave: () => void;
+  onStartGame?: () => void;
 }
 
-export const LobbyScreen = ({ roomCode, players, userId, hostId, onLeave }: LobbyScreenProps) => {
+export const LobbyScreen = ({ roomCode, players, userId, hostId, onLeave, onStartGame }: LobbyScreenProps) => {
   const handlePress = () => {
-    alert('Kliknięto przycisk opuszczenia!');
+
     onLeave();
   };
-
+  const isHost = userId === hostId;
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -38,6 +39,17 @@ export const LobbyScreen = ({ roomCode, players, userId, hostId, onLeave }: Lobb
         />
       </View>
 
+      {isHost && (
+        <TouchableOpacity 
+          style={[styles.startButton, players.length < 2 && styles.buttonDisabled]}
+          onPress={onStartGame}
+          disabled={players.length < 2}
+        >
+          <Text style={styles.startButtonText}>
+            {players.length < 2 ? 'OCZEKIWANIE NA GRACZY...' : 'WYSTARTUJ GRĘ'}
+          </Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity style={styles.leaveButton} onPress={handlePress}>
         <Text style={styles.backText}>OPUŚĆ POKÓJ</Text>
       </TouchableOpacity>
@@ -54,6 +66,9 @@ const styles = StyleSheet.create({
   list: { width: '100%', marginBottom: 20 },
   playerCard: { backgroundColor: '#1E1E1E', padding: 15, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#333' },
   playerName: { color: '#FFF', fontSize: 18, fontWeight: '600' },
+  startButton: { backgroundColor: '#4CAF50', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#45a049' },
+  startButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  buttonDisabled: { backgroundColor: '#cccccc', borderColor: '#999999' },
   leaveButton: { backgroundColor: '#331111', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FF5252' },
   backText: { color: '#FF5252', fontSize: 16, marginTop: 10 },
   listContainer: { flex: 1, width: '100%', marginBottom: 15 },

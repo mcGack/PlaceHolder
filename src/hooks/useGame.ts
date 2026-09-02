@@ -1,7 +1,7 @@
 import { onValue, ref } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
-import { closeRoomInDb, createRoomInDb, joinRoomInDb, leaveRoomInDb } from '../services/roomService';
+import { closeRoomInDb, createRoomInDb, joinRoomInDb, leaveRoomInDb, startGameInDb } from '../services/roomService';
 import { GameMode, Player, RoomData, ScreenState } from '../types/game';
 export const useGame = () => {
   const [screen, setScreen] = useState<ScreenState>('MENU');
@@ -34,6 +34,11 @@ export const useGame = () => {
       setRoomData(data);
       if (data.players) {
         setPlayersList(Object.values(data.players));
+      
+      }
+      // If the game has started, navigate to the GAME screen
+      if (data.status === 'IN_GAME' && screen !== 'GAME') {
+      setScreen('GAME');
       }
     });
 
@@ -89,6 +94,8 @@ export const useGame = () => {
     }
     setScreen(targetScreen);
   };
+
+
   const handleLeaveRoom = async () => {
     console.log('Rozpoczynam opuszczanie pokoju...', { roomCode, userId });
     try {
@@ -111,6 +118,36 @@ export const useGame = () => {
     setScreen('MENU');
     }
   };
+
+
+  const handleStartGame = async () => {
+    if (!roomCode) {
+      alert('Błąd: Brak kodu pokoju!');
+      return;
+    }
+
+  // Forcefully determine the first player to start the game (randomly selected)
+    const currentPlayers = playersList.length > 0 
+      ? playersList 
+      : roomData?.players ? Object.values(roomData.players) : [];
+
+    if (currentPlayers.length === 0) {
+      alert('Błąd: Brak graczy w pokoju!');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * currentPlayers.length);
+    const firstPlayerId = currentPlayers[randomIndex].id;
+
+    try {
+      await startGameInDb(roomCode, firstPlayerId);
+      setScreen('GAME'); // Forcefully navigate to the game screen for the host
+    } catch (err: any) {
+      alert('Błąd Firebase: ' + err.message);
+    }
+  };
+
+
   return {
     screen,
     mode,

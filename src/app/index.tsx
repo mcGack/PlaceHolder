@@ -1,3 +1,4 @@
+import { GameScreen } from '@/screens/GameScreen';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGame } from '../hooks/useGame';
@@ -65,6 +66,13 @@ export default function App() {
           userId={userId}
           hostId={roomData?.hostId}
           onLeave={handleLeaveRoom}
+        />
+      )}
+      {screen === 'GAME' && (
+        <GameScreen
+          roomCode={roomCode}
+          activePlayerId={roomData?.activePlayerId}
+          userId={userId}
         />
       )}
     </SafeAreaView>
