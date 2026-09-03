@@ -19,4 +19,9 @@ export interface RoomData {
   players: Record<string, Player>;
   createdAt: number;
   activePlayerId?: string;
+  turnStage?: 'DRAWING' | 'PERFORMING' | 'VOTING' | 'SUMMARY';
+  currentChallenge?: string;
+  selectedPoints?: number;
+  isNsfw?: boolean;
+  votes?: Record<string, boolean> | null;
 }

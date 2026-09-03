@@ -24,6 +24,7 @@ export const createRoomInDb = async (hostName: string, mode: GameMode) => {
     hostId,
     status: 'LOBBY',
     mode,
+    isNsfw: mode === 'NSFW',
     players: {
       [hostId]: { id: hostId, name: hostName, score: 0 },
     },
@@ -85,5 +86,20 @@ export const startGameInDb = async (roomCode: string, firstPlayerId: string) => 
     turnStage: 'DRAWING',
     activePlayerId: firstPlayerId,
     votes: null,
+  });
+};
+// Set the challenge for the current turn in the database.
+export const setChallengeInDb = async (
+  roomCode: string, 
+  challengeText: string, 
+  points: number
+) => {
+  if (!roomCode) return;
+  const roomRef = ref(db, `rooms/${roomCode}`);
+
+  await update(roomRef, {
+    turnStage: 'PERFORMING',
+    currentChallenge: challengeText,
+    selectedPoints: points,
   });
 };

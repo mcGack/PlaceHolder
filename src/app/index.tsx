@@ -75,6 +75,11 @@ export default function App() {
           roomCode={roomCode}
           activePlayerId={roomData?.activePlayerId}
           userId={userId}
+          players={playersList}
+          turnStage={roomData?.turnStage}
+          currentChallenge={roomData?.currentChallenge}
+          selectedPoints={roomData?.selectedPoints}
+          isNsfw={roomData?.mode === 'NSFW'}
         />
       )}
     </SafeAreaView>
