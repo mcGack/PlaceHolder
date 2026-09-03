@@ -1,5 +1,5 @@
 import { get, onDisconnect, ref, remove, set, update } from 'firebase/database';
-import { GameMode, RoomData } from '../types/game';
+import { GameMode, Player, RoomData } from '../types/game';
 import { db } from './firebase';
 
 
@@ -101,5 +101,55 @@ export const setChallengeInDb = async (
     turnStage: 'PERFORMING',
     currentChallenge: challengeText,
     selectedPoints: points,
+  });
+};
+// Voting
+export const startVotingInDb = async (roomCode: string) => {
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await update(roomRef, {
+    turnStage: 'VOTING',
+    votes: null, // Reset votes for the new voting stage
+  });
+};
+// Yes or No vote for the current challenge in the database.
+export const castVoteInDb = async (roomCode: string, userId: string, approved: boolean) => {
+  const voteRef = ref(db, `rooms/${roomCode}/votes`);
+  await update(voteRef, {
+    [userId]: approved,
+  });
+};
+// Finishing the turn in the database by updating the active player's score and setting the turn stage to 'SUMMARY'.
+export const finishTurnInDb = async (
+  roomCode: string,
+  activePlayerId: string,
+  pointsDelta: number,
+  currentPlayers: Player[]
+) => {
+  const player = currentPlayers.find((p) => p.id === activePlayerId);
+  const currentScore = player?.score || 0;
+  const newScore = currentScore + pointsDelta;
+
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await update(roomRef, {
+    [`players/${activePlayerId}/score`]: newScore,
+    turnStage: 'SUMMARY',
+  });
+};
+
+// Move to the next player's turn in the database by updating the active player ID and resetting the turn stage and challenge-related fields.
+export const nextTurnInDb = async (roomCode: string, currentPlayers: Player[], activePlayerId: string) => {
+  if (currentPlayers.length === 0) return;
+
+  const currentIndex = currentPlayers.findIndex((p) => p.id === activePlayerId);
+  const nextIndex = (currentIndex + 1) % currentPlayers.length;
+  const nextPlayerId = currentPlayers[nextIndex].id;
+
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await update(roomRef, {
+    activePlayerId: nextPlayerId,
+    turnStage: 'DRAWING',
+    currentChallenge: null,
+    selectedPoints: null,
+    votes: null,
   });
 };

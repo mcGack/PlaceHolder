@@ -20,8 +20,8 @@ export interface RoomData {
   createdAt: number;
   activePlayerId?: string;
   turnStage?: 'DRAWING' | 'PERFORMING' | 'VOTING' | 'SUMMARY';
-  currentChallenge?: string;
-  selectedPoints?: number;
+  currentChallenge?: string | null;
+  selectedPoints?: number | null;
   isNsfw?: boolean;
   votes?: Record<string, boolean> | null;
 }
