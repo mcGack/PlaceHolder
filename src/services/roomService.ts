@@ -61,11 +61,16 @@ export const joinRoomInDb = async (roomCode: string, playerName: string) => {
 };
 // Leave a room in the database by removing the player from the room's players list.
 export const leaveRoomInDb = async (roomCode: string, userId: string) => {
-  if (!roomCode || !userId) return;
-  console.log(`Usuwanie gracza ${userId} z pokoju ${roomCode} w Firebase...`);
-  const playerRef = ref(db, `rooms/${roomCode}/players/${userId}`);
-  await remove(playerRef);
-  console.log('Gracz został usunięty z pokoju w Firebase.');
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  const snapshot = await get(roomRef);
+
+  if (!snapshot.exists()) return;
+
+  const updates: Record<string, any> = {
+    [`players/${userId}`]: null,
+    [`votes/${userId}`]: null, // Remove the user's vote if they have voted
+  };
+  await update(roomRef, updates);
 };
 // Host closes the room in the database by removing the entire room entry.
 export const closeRoomInDb = async (roomCode: string) => {
@@ -151,5 +156,26 @@ export const nextTurnInDb = async (roomCode: string, currentPlayers: Player[], a
     currentChallenge: null,
     selectedPoints: null,
     votes: null,
+  });
+};
+// Register the player's presence in the room and set up onDisconnect handlers to clean up their presence and vote when they leave unexpectedly.
+export const registerPresence = (roomCode: string, userId: string) => {
+  const playerRef = ref(db, `rooms/${roomCode}/players/${userId}`);
+  const voteRef = ref(db, `rooms/${roomCode}/votes/${userId}`);
+
+  // On disconnect, remove the player's presence and their vote from the database to ensure clean-up when they leave unexpectedly.
+  onDisconnect(playerRef).remove();
+  onDisconnect(voteRef).remove();
+};
+// End the game in the database by updating the room's status and turn stage to 'FINISHED'.
+export const endGameInDb = async (roomCode: string, currentPlayers: Player[]) => {
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await update(roomRef, {
+    status: 'FINISHED',
+    turnStage: 'FINISHED',
+    finalLeaderboard: currentPlayers,
+    currentChallenge: null,
+    votes: null,
+    activePlayerId: null,
   });
 };

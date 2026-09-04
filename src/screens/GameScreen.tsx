@@ -3,10 +3,14 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import challengesData from '../../challenges.json';
 import {
   castVoteInDb,
+  closeRoomInDb,
+  endGameInDb,
   finishTurnInDb,
+  leaveRoomInDb,
   nextTurnInDb,
+  registerPresence,
   setChallengeInDb,
-  startVotingInDb
+  startVotingInDb,
 } from '../services/roomService';
 import { Player } from '../types/game';
 
@@ -16,11 +20,13 @@ interface GameScreenProps {
   userId: string;
   players: Player[];
   turnStage?: string;
-  currentChallenge?: string;
-  selectedPoints?: number;
+  currentChallenge?: string | null;
+  selectedPoints?: number | null;
   isNsfw?: boolean;
-  votes?: Record<string, boolean>;
+  votes?: Record<string, boolean> | null;
   hostId?: string;
+  finalLeaderboard?: Player[] | null;
+  onLeaveRoom?: () => void;
 }
 
 export const GameScreen = ({
@@ -34,42 +40,74 @@ export const GameScreen = ({
   isNsfw = false,
   votes = {},
   hostId,
+  finalLeaderboard,
+  onLeaveRoom,
 }: GameScreenProps) => {
   const safePoints = selectedPoints ?? 0;
+  const safeVotes = votes ?? {};
+  const currentHostId = players.some((p) => p.id === hostId) ? hostId : players[0]?.id;
+  const isHost = userId === currentHostId;
   const isMyTurn = activePlayerId === userId;
-  const isHost = userId === hostId;
+
   const activePlayer = players.find((p) => p.id === activePlayerId);
   const activePlayerName = activePlayer ? activePlayer.name : 'Gracz';
 
- 
-  useEffect(() => {
-    if (turnStage === 'SUMMARY' && isHost) {
-      const timer = setTimeout(() => {
-        nextTurnInDb(roomCode, players, activePlayerId || '');
-      }, 3000); //
+  
+  const displayLeaderboard =
+    turnStage === 'FINISHED' && finalLeaderboard && finalLeaderboard.length > 0
+      ? finalLeaderboard
+      : [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
 
-      return () => clearTimeout(timer);
+  const winner = displayLeaderboard[0];
+
+  useEffect(() => {
+    if (roomCode && userId) {
+      registerPresence(roomCode, userId);
     }
-  }, [turnStage, isHost]);
+  }, [roomCode, userId]);
 
   useEffect(() => {
-    if (turnStage === 'VOTING' && isHost) {
-      const voterIds = Object.keys(votes);
-      const otherPlayersCount = players.filter((p) => p.id !== activePlayerId).length;
+    if (!isHost || players.length === 0 || turnStage === 'FINISHED') return;
 
-      
-      if (voterIds.length >= otherPlayersCount && otherPlayersCount > 0) {
-        const yesVotes = Object.values(votes).filter((v) => v === true).length;
-        const noVotes = Object.values(votes).filter((v) => v === false).length;
+    const isActivePlayerStillHere = players.some((p) => p.id === activePlayerId);
+    if (!isActivePlayerStillHere) {
+      nextTurnInDb(roomCode, players, activePlayerId || '');
+      return;
+    }
 
-        
+    if (turnStage === 'VOTING') {
+      const otherPlayers = players.filter((p) => p.id !== activePlayerId);
+
+      if (otherPlayers.length === 0) {
+        finishTurnInDb(roomCode, activePlayerId || '', 0, players);
+        return;
+      }
+
+      const validVoterIds = Object.keys(safeVotes).filter((voterId) =>
+        otherPlayers.some((p) => p.id === voterId)
+      );
+
+      if (validVoterIds.length >= otherPlayers.length) {
+        const yesVotes = validVoterIds.filter((id) => safeVotes[id] === true).length;
+        const noVotes = validVoterIds.filter((id) => safeVotes[id] === false).length;
+
         const passed = yesVotes >= noVotes;
         const delta = passed ? safePoints : -safePoints;
 
         finishTurnInDb(roomCode, activePlayerId || '', delta, players);
       }
     }
-  }, [votes, turnStage, isHost]);
+  }, [safeVotes, turnStage, isHost, players, activePlayerId, safePoints, roomCode]);
+
+  useEffect(() => {
+    if (turnStage === 'SUMMARY' && isHost) {
+      const timer = setTimeout(() => {
+        nextTurnInDb(roomCode, players, activePlayerId || '');
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [turnStage, isHost, roomCode, players, activePlayerId]);
 
   const handleSelectPoints = async (points: number) => {
     if (!Array.isArray(challengesData) || challengesData.length === 0) return;
@@ -94,97 +132,169 @@ export const GameScreen = ({
     await finishTurnInDb(roomCode, activePlayerId || '', -safePoints, players);
   };
 
+  const handleForceFinishVoting = async () => {
+    if (!isHost) return;
+
+    const otherPlayers = players.filter((p) => p.id !== activePlayerId);
+    const validVoterIds = Object.keys(safeVotes).filter((voterId) =>
+      otherPlayers.some((p) => p.id === voterId)
+    );
+
+    const yesVotes = validVoterIds.filter((id) => safeVotes[id] === true).length;
+    const noVotes = validVoterIds.filter((id) => safeVotes[id] === false).length;
+
+    const passed = yesVotes >= noVotes;
+    const delta = passed ? safePoints : -safePoints;
+
+    await finishTurnInDb(roomCode, activePlayerId || '', delta, players);
+  };
+
+
+  const handleEndGame = async () => {
+    await endGameInDb(roomCode, players);
+  };
+
+  
+  const handleExitGame = async () => {
+    if (isHost) {
+      await closeRoomInDb(roomCode); 
+    } else {
+      await leaveRoomInDb(roomCode, userId);
+    }
+    if (onLeaveRoom) onLeaveRoom();
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.roomBadge}>POKÓJ: {roomCode}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.roomBadge}>POKÓJ: {roomCode}</Text>
+        {isHost && turnStage !== 'FINISHED' && (
+          <TouchableOpacity style={styles.endGameHeaderBtn} onPress={handleEndGame}>
+            <Text style={styles.endGameHeaderBtnText}>ZAKOŃCZ GRĘ</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       
-      {turnStage !== 'PERFORMING' && turnStage !== 'VOTING' && turnStage !== 'SUMMARY' && (
+      {turnStage === 'FINISHED' ? (
         <View style={styles.content}>
-          <Text style={styles.turnTitle}>{isMyTurn ? 'TWOJA TURA!' : `TURA GRACZA: ${activePlayerName}`}</Text>
-          {isMyTurn ? (
-            <View style={styles.buttonGroup}>
-              <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(1)}>
-                <Text style={styles.pointText}>1 PKT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(3)}>
-                <Text style={styles.pointText}>3 PKT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(5)}>
-                <Text style={styles.pointText}>5 PKT</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.waitingText}>{activePlayerName} wybiera stawkę punktową...</Text>
-          )}
-        </View>
-      )}
+          <Text style={styles.winnerTitle}>👑 ZWYCIĘZCA 👑</Text>
+          <Text style={styles.winnerName}>{winner?.name || 'Brak'} ({winner?.score || 0} PKT)</Text>
 
-      
-      {turnStage === 'PERFORMING' && (
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>ZADANIE DLA {activePlayerName} ({selectedPoints} PKT):</Text>
-          <Text style={styles.cardText}>{currentChallenge}</Text>
-
-          {isMyTurn ? (
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={[styles.actionBtn, styles.successBtn]} onPress={() => startVotingInDb(roomCode)}>
-                <Text style={styles.btnText}>WYKONANE!</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.dangerBtn]} onPress={handleForfeit}>
-                <Text style={styles.btnText}>PODDAJĘ SIĘ (-{selectedPoints} PKT)</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.waitingText}>{activePlayerName} wykonuje zadanie...</Text>
-          )}
-        </View>
-      )}
-
-     
-      {turnStage === 'VOTING' && (
-        <View style={styles.content}>
-          <Text style={styles.turnTitle}>GŁOSOWANIE!</Text>
-          <Text style={styles.subtitle}>Czy {activePlayerName} poprawnie wykonał(a) zadanie?</Text>
-
-          {!isMyTurn ? (
-            <View style={styles.actionRow}>
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.successBtn, votes[userId] === true && styles.selectedBtn]} 
-                onPress={() => castVoteInDb(roomCode, userId, true)}
-              >
-                <Text style={styles.btnText}>TAK (+{selectedPoints} PKT)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.dangerBtn, votes[userId] === false && styles.selectedBtn]} 
-                onPress={() => castVoteInDb(roomCode, userId, false)}
-              >
-                <Text style={styles.btnText}>NIE (-{selectedPoints} PKT)</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.waitingText}>Gracze głosują nad Twoim wykonaniem...</Text>
-          )}
-        </View>
-      )}
-
-      
-      {turnStage === 'SUMMARY' && (
-        <View style={styles.content}>
-          <Text style={styles.turnTitle}>TABELA WYNIKÓW</Text>
+          <Text style={styles.turnTitle}>WYNIKI KOŃCOWE (ZAMROŻONE)</Text>
           <View style={styles.leaderboard}>
-            {players
-              .sort((a, b) => (b.score || 0) - (a.score || 0))
-              .map((p, index) => (
-                <View key={p.id} style={styles.leaderboardRow}>
-                  <Text style={styles.rankText}>#{index + 1} {p.name}</Text>
-                  <Text style={styles.scoreText}>{p.score || 0} PKT</Text>
-                </View>
-              ))}
+            {displayLeaderboard.map((p, index) => (
+              <View key={p.id} style={styles.leaderboardRow}>
+                <Text style={styles.rankText}>
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`} {p.name}
+                </Text>
+                <Text style={styles.scoreText}>{p.score || 0} PKT</Text>
+              </View>
+            ))}
           </View>
-          <Text style={styles.nextTurnNotice}>Nastepna tura za chwilę...</Text>
+
+          <TouchableOpacity style={styles.exitBtn} onPress={handleExitGame}>
+            <Text style={styles.btnText}>WRÓĆ DO MENU GŁÓWNEGO</Text>
+          </TouchableOpacity>
         </View>
+      ) : (
+        <>
+          
+          {turnStage !== 'PERFORMING' && turnStage !== 'VOTING' && turnStage !== 'SUMMARY' && (
+            <View style={styles.content}>
+              <Text style={styles.turnTitle}>{isMyTurn ? 'TWOJA TURA!' : `TURA GRACZA: ${activePlayerName}`}</Text>
+              {isMyTurn ? (
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(1)}>
+                    <Text style={styles.pointText}>1 PKT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(3)}>
+                    <Text style={styles.pointText}>3 PKT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(5)}>
+                    <Text style={styles.pointText}>5 PKT</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.waitingText}>{activePlayerName} wybiera stawkę punktową...</Text>
+              )}
+            </View>
+          )}
+
+          
+          {turnStage === 'PERFORMING' && (
+            <View style={styles.card}>
+              <Text style={styles.cardHeader}>ZADANIE DLA {activePlayerName} ({safePoints} PKT):</Text>
+              <Text style={styles.cardText}>{currentChallenge}</Text>
+
+              {isMyTurn ? (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={[styles.actionBtn, styles.successBtn]} onPress={() => startVotingInDb(roomCode)}>
+                    <Text style={styles.btnText}>WYKONANE!</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.dangerBtn]} onPress={handleForfeit}>
+                    <Text style={styles.btnText}>PODDAJĘ SIĘ (-{safePoints} PKT)</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.waitingText}>{activePlayerName} wykonuje zadanie...</Text>
+              )}
+            </View>
+          )}
+
+          
+          {turnStage === 'VOTING' && (
+            <View style={styles.content}>
+              <Text style={styles.turnTitle}>GŁOSOWANIE!</Text>
+              <Text style={styles.subtitle}>Czy {activePlayerName} poprawnie wykonał(a) zadanie?</Text>
+
+              {!isMyTurn ? (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, styles.successBtn, safeVotes[userId] === true && styles.selectedBtn]} 
+                    onPress={() => castVoteInDb(roomCode, userId, true)}
+                  >
+                    <Text style={styles.btnText}>TAK (+{safePoints} PKT)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, styles.dangerBtn, safeVotes[userId] === false && styles.selectedBtn]} 
+                    onPress={() => castVoteInDb(roomCode, userId, false)}
+                  >
+                    <Text style={styles.btnText}>NIE (-{safePoints} PKT)</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.waitingText}>Gracze głosują nad Twoim wykonaniem...</Text>
+              )}
+
+              {isHost && (
+                <TouchableOpacity 
+                  style={[styles.actionBtn, { backgroundColor: '#444', marginTop: 25 }]} 
+                  onPress={handleForceFinishVoting}
+                >
+                  <Text style={styles.btnText}>ZAKOŃCZ GŁOSOWANIE TERAZ (HOST)</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+         
+          {turnStage === 'SUMMARY' && (
+            <View style={styles.content}>
+              <Text style={styles.turnTitle}>TABELA WYNIKÓW</Text>
+              <View style={styles.leaderboard}>
+                {displayLeaderboard.map((p, index) => (
+                  <View key={p.id} style={styles.leaderboardRow}>
+                    <Text style={styles.rankText}>#{index + 1} {p.name}</Text>
+                    <Text style={styles.scoreText}>{p.score || 0} PKT</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.nextTurnNotice}>Następna tura za chwilę...</Text>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -193,7 +303,10 @@ export const GameScreen = ({
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
   content: { width: '100%', alignItems: 'center' },
-  roomBadge: { color: '#666', fontSize: 14, marginBottom: 15 },
+  headerRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  roomBadge: { color: '#666', fontSize: 14 },
+  endGameHeaderBtn: { backgroundColor: '#8B0000', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+  endGameHeaderBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
   turnTitle: { fontSize: 24, fontWeight: 'bold', color: '#FFD700', marginBottom: 15, textAlign: 'center' },
   subtitle: { color: '#FFF', fontSize: 16, marginBottom: 20, textAlign: 'center' },
   buttonGroup: { width: '100%', gap: 12 },
@@ -214,4 +327,7 @@ const styles = StyleSheet.create({
   rankText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   scoreText: { color: '#FFD700', fontSize: 18, fontWeight: 'bold' },
   nextTurnNotice: { color: '#888', marginTop: 20, fontStyle: 'italic' },
+  winnerTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFD700', marginBottom: 5 },
+  winnerName: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 25 },
+  exitBtn: { backgroundColor: '#333', padding: 16, borderRadius: 10, marginTop: 25, width: '100%', alignItems: 'center' },
 });

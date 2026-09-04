@@ -82,6 +82,8 @@ export default function App() {
           isNsfw={roomData?.mode === 'NSFW'}
           votes={roomData?.votes || {}}
           hostId={roomData?.hostId}
+          finalLeaderboard={roomData?.finalLeaderboard}
+          onLeaveRoom={() => navigateTo('LOBBY')}
         />
       )}
     </SafeAreaView>
