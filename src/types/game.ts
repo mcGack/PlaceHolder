@@ -24,5 +24,5 @@ export interface RoomData {
   selectedPoints?: number | null;
   isNsfw?: boolean;
   votes?: Record<string, boolean> | null;
-  finalLeaderboard?: Player[] | null;
+  finalLeaderboard?: Player[] | null; // Optional property for the final leaderboard
 }
