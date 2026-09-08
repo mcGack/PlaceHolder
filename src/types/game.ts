@@ -10,6 +10,7 @@ export interface Player {
   id: string;
   name: string;
   score: number;
+  uid?: string;
 }
 
 export interface RoomData {

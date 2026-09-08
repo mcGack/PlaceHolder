@@ -82,15 +82,22 @@ export const closeRoomInDb = async (roomCode: string) => {
 };
 
 // Start the game in the database by updating the room's status, turn stage, and active player ID.
-export const startGameInDb = async (roomCode: string, firstPlayerId: string) => {
-  if (!roomCode) return;
-  const roomRef = ref(db, `rooms/${roomCode}`);
+export const startGameInDb = async (roomCode: string, players: Player[]) => {
+  if (!players || players.length === 0) return;
 
+
+  const randomIndex = Math.floor(Math.random() * players.length);
+  const firstPlayer = players[randomIndex];
+  const playerId = firstPlayer?.id || firstPlayer?.uid || '';
+
+  const roomRef = ref(db, `rooms/${roomCode}`);
   await update(roomRef, {
     status: 'IN_GAME',
-    turnStage: 'DRAWING',
-    activePlayerId: firstPlayerId,
+    turnStage: 'ROULETTE',
+    activePlayerId: playerId,
+    currentChallenge: null,
     votes: null,
+    selectedPoints: null,
   });
 };
 // Set the challenge for the current turn in the database.
@@ -142,20 +149,39 @@ export const finishTurnInDb = async (
 };
 
 // Move to the next player's turn in the database by updating the active player ID and resetting the turn stage and challenge-related fields.
-export const nextTurnInDb = async (roomCode: string, currentPlayers: Player[], activePlayerId: string) => {
-  if (currentPlayers.length === 0) return;
+export const nextTurnInDb = async (
+  roomCode: string,
+  players: Player[],
+  currentActivePlayerId: string
+) => {
+  if (!players || players.length === 0) return;
 
-  const currentIndex = currentPlayers.findIndex((p) => p.id === activePlayerId);
-  const nextIndex = (currentIndex + 1) % currentPlayers.length;
-  const nextPlayerId = currentPlayers[nextIndex].id;
+
+  const eligiblePlayers =
+    players.length > 1
+      ? players.filter((p) => p.id !== currentActivePlayerId)
+      : players;
+
+  const targetList = eligiblePlayers.length > 0 ? eligiblePlayers : players;
+  const randomIndex = Math.floor(Math.random() * targetList.length);
+  const nextPlayer = targetList[randomIndex];
+  const nextPlayerId = nextPlayer?.id || nextPlayer?.uid || '';
+
+  if (!nextPlayerId) return;
 
   const roomRef = ref(db, `rooms/${roomCode}`);
   await update(roomRef, {
     activePlayerId: nextPlayerId,
-    turnStage: 'DRAWING',
+    turnStage: 'ROULETTE',
     currentChallenge: null,
-    selectedPoints: null,
     votes: null,
+    selectedPoints: null,
+  });
+};
+export const startDrawingInDb = async (roomCode: string) => {
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  await update(roomRef, {
+    turnStage: 'DRAWING',
   });
 };
 // Register the player's presence in the room and set up onDisconnect handlers to clean up their presence and vote when they leave unexpectedly.

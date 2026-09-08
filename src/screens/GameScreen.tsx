@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import challengesData from '../../challenges.json';
+import { RouletteWheel } from '../components/RouletteWheel';
 import {
   castVoteInDb,
   closeRoomInDb,
@@ -10,6 +11,7 @@ import {
   nextTurnInDb,
   registerPresence,
   setChallengeInDb,
+  startDrawingInDb,
   startVotingInDb,
 } from '../services/roomService';
 import { Player } from '../types/game';
@@ -60,6 +62,18 @@ export const GameScreen = ({
 
   const winner = displayLeaderboard[0];
 
+
+  useEffect(() => {
+  if (turnStage === 'ROULETTE' && isHost) {
+    const timer = setTimeout(() => {
+      startDrawingInDb(roomCode);
+    }, 4500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [turnStage, isHost, roomCode]);
+
+
   useEffect(() => {
     if (roomCode && userId) {
       registerPresence(roomCode, userId);
@@ -67,7 +81,12 @@ export const GameScreen = ({
   }, [roomCode, userId]);
 
   useEffect(() => {
-    if (!isHost || players.length === 0 || turnStage === 'FINISHED') return;
+    if (!isHost || turnStage === 'FINISHED') return;
+
+    if (players.length <= 1) {
+      endGameInDb(roomCode, players);
+      return;
+    }
 
     const isActivePlayerStillHere = players.some((p) => p.id === activePlayerId);
     if (!isActivePlayerStillHere) {
@@ -166,6 +185,7 @@ export const GameScreen = ({
 
   return (
     <View style={styles.container}>
+      
       <View style={styles.headerRow}>
         <Text style={styles.roomBadge}>POKÓJ: {roomCode}</Text>
         {isHost && turnStage !== 'FINISHED' && (
@@ -175,7 +195,6 @@ export const GameScreen = ({
         )}
       </View>
 
-      
       {turnStage === 'FINISHED' ? (
         <View style={styles.content}>
           <Text style={styles.winnerTitle}>👑 ZWYCIĘZCA 👑</Text>
@@ -192,17 +211,24 @@ export const GameScreen = ({
               </View>
             ))}
           </View>
-
           <TouchableOpacity style={styles.exitBtn} onPress={handleExitGame}>
             <Text style={styles.btnText}>WRÓĆ DO MENU GŁÓWNEGO</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
-          
-          {turnStage !== 'PERFORMING' && turnStage !== 'VOTING' && turnStage !== 'SUMMARY' && (
+
+          {turnStage === 'ROULETTE' && (
             <View style={styles.content}>
-              <Text style={styles.turnTitle}>{isMyTurn ? 'TWOJA TURA!' : `TURA GRACZA: ${activePlayerName}`}</Text>
+              <Text style={styles.turnTitle}>LOSOWANIE GRACZA!</Text>
+              <RouletteWheel players={players} activePlayerId={activePlayerId} />
+            </View>
+          )}
+          {turnStage === 'DRAWING' && (
+            <View style={styles.content}>
+              <Text style={styles.turnTitle}>
+                {isMyTurn ? 'TWOJA TURA!' : `TURA GRACZA: ${activePlayerName}`}
+              </Text>
               {isMyTurn ? (
                 <View style={styles.buttonGroup}>
                   <TouchableOpacity style={styles.pointBtn} onPress={() => handleSelectPoints(1)}>
@@ -242,7 +268,7 @@ export const GameScreen = ({
             </View>
           )}
 
-          
+        
           {turnStage === 'VOTING' && (
             <View style={styles.content}>
               <Text style={styles.turnTitle}>GŁOSOWANIE!</Text>
